@@ -27,7 +27,7 @@
             <xsl:choose>
               <xsl:when test="source/overview/url != ''">
                 <img class="w-10 h-full flex-shrink-0 border border-gray-200 bg-gray-100 rounded"
-                     src="{source/overview/url}"/>
+                     src="{source/overview[1]/url}"/>
               </xsl:when>
               <xsl:otherwise>
                 <xsl:call-template name="render-overview-missing"/>
