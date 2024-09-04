@@ -17,7 +17,9 @@ import org.apache.commons.collections.ListUtils;
 import org.fao.geonet.common.search.GnMediaType;
 import org.fao.geonet.common.search.SearchConfiguration;
 import org.fao.geonet.common.search.SearchConfiguration.Operations;
+import org.fao.geonet.domain.Metadata;
 import org.fao.geonet.domain.Source;
+import org.fao.geonet.domain.SourceType;
 import org.fao.geonet.index.model.opensearch.OpenSearchDescription;
 import org.fao.geonet.index.model.opensearch.OpenSearchDescription.Url;
 import org.fao.geonet.ogcapi.records.controller.model.CollectionInfo;
@@ -25,6 +27,7 @@ import org.fao.geonet.ogcapi.records.model.XsltModel;
 import org.fao.geonet.ogcapi.records.service.CollectionService;
 import org.fao.geonet.ogcapi.records.util.CollectionInfoBuilder;
 import org.fao.geonet.ogcapi.records.util.MediaTypeUtil;
+import org.fao.geonet.repository.MetadataRepository;
 import org.fao.geonet.view.ViewUtility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -36,6 +39,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -44,6 +48,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.ViewResolver;
 import springfox.documentation.annotations.ApiIgnore;
+
+import static org.fao.geonet.ogcapi.records.controller.CapabilitiesApiController.injectSystemMetaMetadata;
 
 
 @Api(tags = "OGC API Records")
@@ -74,6 +80,10 @@ public class CollectionApiController {
 
   @Autowired
   MediaTypeUtil mediaTypeUtil;
+
+  @Autowired
+  MetadataRepository metadataRepository;
+
 
   /**
    * Describe a collection.
@@ -136,6 +146,7 @@ public class CollectionApiController {
         XsltModel modelSource = new XsltModel();
         modelSource.setOutputFormats(configuration.getFormats(Operations.collection));
         modelSource.setCollection(source);
+        injectSystemMetaMetadata(modelSource,metadataRepository,source);
         model.addAttribute("source", modelSource.toSource());
 
         viewUtility.addi18n(model, locale, request);
@@ -218,4 +229,24 @@ public class CollectionApiController {
 
     return ResponseEntity.ok(collectionService.getSortables(source));
   }
+
+  public static void injectSystemMetaMetadata(XsltModel modelSource, MetadataRepository metadataRepository, Source portal) {
+    if (portal == null)
+      return;
+    var uuid = portal.getServiceRecord();
+    if (StringUtils.isEmpty(uuid) || uuid.trim().equals("-1"))
+      return;
+
+    var metadataRecord = metadataRepository.findOneByUuid(uuid);
+    if (metadataRecord == null)
+      return;
+
+    injectSystemMetaMetadata(modelSource,metadataRecord,portal);
+  }
+
+  public static void injectSystemMetaMetadata(XsltModel modelSource, Metadata metadata,Source portal) {
+    var xml = metadata.getData();
+    portal.setServiceRecord(xml);
+  }
+
 }

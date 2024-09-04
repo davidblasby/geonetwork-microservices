@@ -629,7 +629,7 @@ public class ItemApiController {
     model.addAttribute("source", modelSource.toSource());
     viewUtility.addi18n(model, locale, request);
 
-    View view = viewResolver.resolveViewName("ogcapir/collection", locale);
+    View view = viewResolver.resolveViewName("ogcapir/collectionOLD", locale);
     view.render(model.asMap(), request, response);
 
     return ResponseEntity.ok().build();

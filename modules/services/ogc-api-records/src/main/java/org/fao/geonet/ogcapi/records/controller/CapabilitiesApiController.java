@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.fao.geonet.common.search.SearchConfiguration;
 import org.fao.geonet.common.search.SearchConfiguration.Operations;
+import org.fao.geonet.domain.Metadata;
 import org.fao.geonet.domain.Source;
 import org.fao.geonet.domain.SourceType;
 import org.fao.geonet.ogcapi.records.controller.model.Conformance;
@@ -24,7 +25,9 @@ import org.fao.geonet.ogcapi.records.model.XsltModel;
 import org.fao.geonet.ogcapi.records.util.CollectionInfoBuilder;
 import org.fao.geonet.ogcapi.records.util.LinksItemsBuilder;
 import org.fao.geonet.ogcapi.records.util.MediaTypeUtil;
+import org.fao.geonet.repository.MetadataRepository;
 import org.fao.geonet.repository.SourceRepository;
+
 import org.fao.geonet.view.ViewUtility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -76,6 +79,9 @@ public class CapabilitiesApiController {
 
   @Autowired
   MediaTypeUtil mediaTypeUtil;
+
+  @Autowired
+  MetadataRepository metadataRepository;
 
   /**
    * Landing page end-point.
@@ -131,8 +137,10 @@ public class CapabilitiesApiController {
       XsltModel modelSource = new XsltModel();
       modelSource.setOutputFormats(configuration.getFormats(Operations.collections));
       modelSource.setCollections(sources);
+      injectSystemMetaMetadata(modelSource,metadataRepository);
       model.addAttribute(SOURCE_ATTR, modelSource.toSource());
       Locale locale = LocaleContextHolder.getLocale();
+
       viewUtility.addi18n(model, locale, request);
 
       View view = viewResolver.resolveViewName("ogcapir/landingpage", locale);
@@ -268,6 +276,7 @@ public class CapabilitiesApiController {
     } else {
       List<Source> sources = sourceRepository.findAll();
       XsltModel modelSource = new XsltModel();
+
       modelSource.setOutputFormats(configuration.getFormats(Operations.collections));
       modelSource.setCollections(sources);
       model.addAttribute(SOURCE_ATTR, modelSource.toSource());
@@ -278,5 +287,27 @@ public class CapabilitiesApiController {
 
       return ResponseEntity.ok(new Content());
     }
+  }
+
+  public static void injectSystemMetaMetadata(XsltModel modelSource, MetadataRepository metadataRepository) {
+      if (modelSource.getCollections().size() == 0)
+        return;
+      var portal = modelSource.getCollections().stream().filter(x->x.getType() == SourceType.portal).findFirst();
+      if (portal.isEmpty())
+        return;
+      var uuid = portal.get().getServiceRecord();
+      if (StringUtils.isEmpty(uuid) || uuid.trim().equals("-1"))
+        return;
+
+      var metadataRecord = metadataRepository.findOneByUuid(uuid);
+      if (metadataRecord == null)
+        return;
+
+    injectSystemMetaMetadata(modelSource,metadataRecord,portal.get());
+  }
+
+  public static void injectSystemMetaMetadata(XsltModel modelSource, Metadata metadata,Source portal) {
+     var xml = metadata.getData();
+     portal.setServiceRecord(xml);
   }
 }
